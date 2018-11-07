@@ -34,6 +34,8 @@ import jp.co.cyberagent.stf.monitor.AirplaneModeMonitor;
 import jp.co.cyberagent.stf.monitor.BatteryMonitor;
 import jp.co.cyberagent.stf.monitor.BrowserPackageMonitor;
 import jp.co.cyberagent.stf.monitor.ConnectivityMonitor;
+import jp.co.cyberagent.stf.monitor.CpuMonitor;
+import jp.co.cyberagent.stf.monitor.MiniStateMonitor;
 import jp.co.cyberagent.stf.monitor.PhoneStateMonitor;
 import jp.co.cyberagent.stf.monitor.RotationMonitor;
 import jp.co.cyberagent.stf.proto.Wire;
@@ -53,6 +55,7 @@ import jp.co.cyberagent.stf.query.GetBluetoothStatusResponder;
 import jp.co.cyberagent.stf.query.SetClipboardResponder;
 import jp.co.cyberagent.stf.query.SetKeyguardStateResponder;
 import jp.co.cyberagent.stf.query.SetMasterMuteResponder;
+import jp.co.cyberagent.stf.query.SetPackageNameResponder;
 import jp.co.cyberagent.stf.query.SetRingerModeResponder;
 import jp.co.cyberagent.stf.query.SetWakeLockResponder;
 import jp.co.cyberagent.stf.query.SetWifiEnabledResponder;
@@ -94,13 +97,13 @@ public class Service extends android.app.Service {
 
         Intent notificationIntent = new Intent(this, IdentityActivity.class);
         Notification notification = new NotificationCompat.Builder(this)
-                .setSmallIcon(android.R.drawable.ic_menu_info_details)
-                .setTicker(getString(R.string.service_ticker))
-                .setContentTitle(getString(R.string.service_title))
-                .setContentText(getString(R.string.service_text))
-                .setContentIntent(PendingIntent.getActivity(this, 0, notificationIntent, 0))
-                .setWhen(System.currentTimeMillis())
-                .build();
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setTicker(getString(R.string.service_ticker))
+            .setContentTitle(getString(R.string.service_title))
+            .setContentText(getString(R.string.service_text))
+            .setContentIntent(PendingIntent.getActivity(this, 0, notificationIntent, 0))
+            .setWhen(System.currentTimeMillis())
+            .build();
 
         startForeground(NOTIFICATION_ID, notification);
     }
@@ -116,8 +119,7 @@ public class Service extends android.app.Service {
         if (acceptor != null) {
             try {
                 acceptor.close();
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 // We don't care
             }
         }
@@ -125,11 +127,9 @@ public class Service extends android.app.Service {
         try {
             executor.shutdownNow();
             executor.awaitTermination(10, TimeUnit.SECONDS);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             // Too bad
-        }
-        finally {
+        } finally {
             started = false;
 
             // Unfortunately, we have no way to clean up some Binder-based callbacks
@@ -161,27 +161,24 @@ public class Service extends android.app.Service {
                     addMonitor(new RotationMonitor(this, writers));
                     addMonitor(new AirplaneModeMonitor(this, writers));
                     addMonitor(new BrowserPackageMonitor(this, writers));
+                    addMonitor(new CpuMonitor(this, writers));
+                    addMonitor(new MiniStateMonitor(this, writers));
 
                     executor.submit(new Server(acceptor));
                     executor.submit(new AdbMonitor());
 
                     started = true;
-                }
-                catch (UnknownHostException e) {
+                } catch (UnknownHostException e) {
                     Log.e(TAG, e.getMessage());
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-            else {
+            } else {
                 Log.w(TAG, "Service is already running");
             }
-        }
-        else if (ACTION_STOP.equals(action)) {
+        } else if (ACTION_STOP.equals(action)) {
             stopSelf();
-        }
-        else {
+        } else {
             Log.e(TAG, "Unknown action " + action);
         }
 
@@ -212,8 +209,7 @@ public class Service extends android.app.Service {
 
             try {
                 acceptor.close();
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
@@ -228,16 +224,13 @@ public class Service extends android.app.Service {
                     Connection conn = new Connection(acceptor.accept());
                     executor.submit(conn);
                 }
-            }
-            catch (IOException e) {
-            }
-            finally {
+            } catch (IOException e) {
+            } finally {
                 Log.i(TAG, "Server stopping");
 
                 try {
                     acceptor.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                 }
 
                 stopSelf();
@@ -257,8 +250,7 @@ public class Service extends android.app.Service {
 
                 try {
                     socket.close();
-                }
-                catch (IOException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
@@ -279,64 +271,67 @@ public class Service extends android.app.Service {
                     router = new MessageRouter(writer);
 
                     router.register(Wire.MessageType.DO_IDENTIFY,
-                            new DoIdentifyResponder(getBaseContext()));
+                        new DoIdentifyResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.DO_ADD_ACCOUNT_MENU,
-                            new DoAddAccountMenuResponder(getBaseContext()));
+                        new DoAddAccountMenuResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.DO_REMOVE_ACCOUNT,
-                            new DoRemoveAccountResponder(getBaseContext()));
+                        new DoRemoveAccountResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_ACCOUNTS,
-                            new GetAccountsResponder(getBaseContext()));
+                        new GetAccountsResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_BROWSERS,
-                            new GetBrowsersResponder(getBaseContext()));
+                        new GetBrowsersResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_CLIPBOARD,
-                            new GetClipboardResponder(getBaseContext()));
+                        new GetClipboardResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_DISPLAY,
-                            new GetDisplayResponder(getBaseContext()));
+                        new GetDisplayResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_PROPERTIES,
-                            new GetPropertiesResponder(getBaseContext()));
+                        new GetPropertiesResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_RINGER_MODE,
-                            new GetRingerModeResponder(getBaseContext()));
+                        new GetRingerModeResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_SD_STATUS,
-                            new GetSdStatusResponder(getBaseContext()));
+                        new GetSdStatusResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_VERSION,
-                            new GetVersionResponder(getBaseContext()));
+                        new GetVersionResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_WIFI_STATUS,
-                            new GetWifiStatusResponder(getBaseContext()));
+                        new GetWifiStatusResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.GET_BLUETOOTH_STATUS,
                         new GetBluetoothStatusResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_CLIPBOARD,
-                            new SetClipboardResponder(getBaseContext()));
+                        new SetClipboardResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_KEYGUARD_STATE,
-                            new SetKeyguardStateResponder(getBaseContext()));
+                        new SetKeyguardStateResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_RINGER_MODE,
-                            new SetRingerModeResponder(getBaseContext()));
+                        new SetRingerModeResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_WAKE_LOCK,
-                            new SetWakeLockResponder(getBaseContext()));
+                        new SetWakeLockResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_WIFI_ENABLED,
-                            new SetWifiEnabledResponder(getBaseContext()));
+                        new SetWifiEnabledResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_BLUETOOTH_ENABLED,
                         new SetBluetoothEnabledResponder(getBaseContext()));
 
                     router.register(Wire.MessageType.SET_MASTER_MUTE,
-                            new SetMasterMuteResponder(getBaseContext()));
+                        new SetMasterMuteResponder(getBaseContext()));
+
+                    router.register(Wire.MessageType.SET_PACKAGE,
+                        new SetPackageNameResponder(getBaseContext()));
 
                     for (AbstractMonitor monitor : monitors) {
                         monitor.peek(writer);
@@ -351,17 +346,13 @@ public class Service extends android.app.Service {
 
                         router.route(envelope);
                     }
-                }
-                catch (InvalidProtocolBufferException e) {
+                } catch (InvalidProtocolBufferException e) {
                     Log.e(TAG, e.getMessage());
                     e.printStackTrace();
-                }
-                catch (IOException e) {
-                }
-                catch (Exception e) {
+                } catch (IOException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
-                }
-                finally {
+                } finally {
                     Log.i(TAG, "Connection stopping");
 
                     writers.remove(writer);
@@ -372,8 +363,7 @@ public class Service extends android.app.Service {
 
                     try {
                         socket.close();
-                    }
-                    catch (IOException e) {
+                    } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
